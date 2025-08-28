@@ -1,0 +1,19 @@
+{
+  "name": "generate-global-types-example",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "vite": "^6.3.5"
+  },
+  "packageManager": "yarn@3.8.6",
+  "devDependencies": {
+    "@types/node": "^24.3.0"
+  },
+  "resolutions": {
+    "vite-plugin-global-types": "portal:/Users/quentinjuarez/Documents/Perso/generate-global-types"
+  }
+}
