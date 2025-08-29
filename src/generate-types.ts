@@ -56,15 +56,17 @@ export function generateGlobalTypes(options: GenerateOptions) {
   });
 
   resolvedInputs.forEach((input) => {
-    if (fs.existsSync(input.absPath) && fs.statSync(input.absPath).isDirectory()) {
-      inputFiles.push(
-        ...findFiles(input.absPath, {
-          filePattern: input.filePattern || /.*/,
-          excludeDirs: input.excludeDirs || [],
-        })
-      );
-    } else {
-      inputFiles.push(input.absPath);
+    if (fs.existsSync(input.absPath)) {
+      if (fs.statSync(input.absPath).isDirectory()) {
+        inputFiles.push(
+          ...findFiles(input.absPath, {
+            filePattern: input.filePattern || /.*/,
+            excludeDirs: input.excludeDirs || [],
+          })
+        );
+      } else {
+        inputFiles.push(input.absPath);
+      }
     }
   });
 
@@ -140,7 +142,7 @@ ${allInterfaces
 // Helpers
 // -----------------------
 
-function extractGenericNames(generics: string): string {
+export function extractGenericNames(generics: string): string {
   if (!generics.startsWith('<') || !generics.endsWith('>')) {
     return generics;
   }
@@ -165,7 +167,7 @@ function extractGenericNames(generics: string): string {
     .join(', ')}>`;
 }
 
-function findFiles(
+export function findFiles(
   baseDir: string,
   {
     filePattern = /.*/,
@@ -186,7 +188,7 @@ function findFiles(
   return results;
 }
 
-function generateAliasName(filePath: string, outputDir: string): string {
+export function generateAliasName(filePath: string, outputDir: string): string {
   const relativePath = path.relative(outputDir, filePath).replace(/\\/g, '/');
   const noExt = relativePath.replace(/\.ts$/, '');
   const parts = noExt.split('/').filter((p) => p && p !== '.' && p !== '..');
