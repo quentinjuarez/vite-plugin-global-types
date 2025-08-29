@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite';
-import vitePluginGlobalTypes from 'vite-plugin-global-types';
+import vitePluginGlobalTypes from '../src/index';
 import path from 'path';
 
 export default defineConfig({
@@ -9,4 +9,7 @@ export default defineConfig({
       outputs: [path.resolve(__dirname, './src/types/global.d.ts')],
     }),
   ],
+  server: {
+    port: 7777,
+  },
 });
