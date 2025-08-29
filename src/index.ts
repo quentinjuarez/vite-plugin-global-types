@@ -1,4 +1,4 @@
-import { Plugin } from 'vite';
+import type { Plugin } from 'vite';
 import { generateGlobalTypes, GenerateOptions } from './generate-types';
 
 export default function vitePluginGlobalTypes(
