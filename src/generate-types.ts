@@ -6,12 +6,15 @@ export interface InputOption {
   filePattern?: RegExp;
   excludeDirs?: string[];
   importAs?: string;
-  absPath?: string; // filled internally
 }
 
 export interface GenerateOptions {
   inputs: (string | InputOption)[];
   outputs: string[];
+}
+
+interface ResolvedInput extends InputOption {
+  absPath: string;
 }
 
 /**
@@ -26,7 +29,12 @@ export function generateGlobalTypes(options: GenerateOptions) {
     rightGenerics: string;
     alias: string;
   }[] = [];
-  let allInterfaces: { name: string; alias: string }[] = [];
+  let allInterfaces: {
+    name: string;
+    alias: string;
+    leftGenerics: string;
+    rightGenerics: string;
+  }[] = [];
   const imports: string[] = [];
 
   const resolvedOutputs = outputs.map((o) => path.resolve(o));
@@ -34,32 +42,29 @@ export function generateGlobalTypes(options: GenerateOptions) {
 
   const inputFiles: string[] = [];
 
-  inputs.forEach((input) => {
-    let absPath: string;
-    let importAs: string | undefined;
-    let pattern: RegExp = /.*/;
-    let excludeDirs: string[] = [];
+  const resolvedInputs: ResolvedInput[] = inputs.map((input) => {
+    const isString = typeof input === 'string';
+    const inputPath = isString ? input : input.path;
+    const absPath = path.resolve(inputPath);
+    return {
+      path: inputPath,
+      filePattern: !isString ? input.filePattern : undefined,
+      excludeDirs: !isString ? input.excludeDirs : undefined,
+      importAs: !isString ? input.importAs : undefined,
+      absPath,
+    };
+  });
 
-    if (typeof input === 'string') {
-      absPath = path.resolve(input);
-    } else {
-      absPath = path.resolve(input.path);
-      importAs = input.importAs;
-      pattern = input.filePattern || pattern;
-      excludeDirs = input.excludeDirs || [];
-    }
-
-    if (fs.existsSync(absPath) && fs.statSync(absPath).isDirectory()) {
+  resolvedInputs.forEach((input) => {
+    if (fs.existsSync(input.absPath) && fs.statSync(input.absPath).isDirectory()) {
       inputFiles.push(
-        ...findFiles(absPath, { filePattern: pattern, excludeDirs })
+        ...findFiles(input.absPath, {
+          filePattern: input.filePattern || /.*/,
+          excludeDirs: input.excludeDirs || [],
+        })
       );
     } else {
-      inputFiles.push(absPath);
-    }
-
-    if (typeof input !== 'string') {
-      input.absPath = absPath;
-      input.importAs = importAs;
+      inputFiles.push(input.absPath);
     }
   });
 
@@ -67,8 +72,8 @@ export function generateGlobalTypes(options: GenerateOptions) {
 
   inputFiles.forEach((file) => {
     const content = fs.readFileSync(file, 'utf-8');
-    const inputOption = (inputs as InputOption[]).find(
-      (inp: any) => inp?.absPath && file.startsWith(inp.absPath)
+    const inputOption = resolvedInputs.find((inp) =>
+      file.startsWith(inp.absPath)
     );
     const alias = generateAliasName(file, outputDir);
     const importPath =
@@ -76,8 +81,8 @@ export function generateGlobalTypes(options: GenerateOptions) {
       path.relative(outputDir, file).replace(/\\/g, '/').replace(/\.ts$/, '');
     imports.push(`import * as ${alias} from '${importPath}'`);
 
-    const typeRegex = /^\s*export\s+type\s+([A-Za-z0-9_]+)(<[^>]+>)?/gm;
-    const interfaceRegex = /^\s*export\s+interface\s+([A-Za-z0-9_]+)/gm;
+    const typeRegex = /^\s*export\s+type\s+([A-Za-z0-9_]+)(<.*>)?/gm;
+    const interfaceRegex = /^\s*export\s+interface\s+([A-Za-z0-9_]+)(<.*>)?/gm;
 
     let match;
     while ((match = typeRegex.exec(content)) !== null) {
@@ -85,12 +90,18 @@ export function generateGlobalTypes(options: GenerateOptions) {
       allTypes.push({
         name: match[1],
         leftGenerics: generics,
-        rightGenerics: generics.replace(/\s*=\s*[^,>]+/g, ''),
+        rightGenerics: extractGenericNames(generics),
         alias,
       });
     }
     while ((match = interfaceRegex.exec(content)) !== null) {
-      allInterfaces.push({ name: match[1], alias });
+      const generics = match[2] || '';
+      allInterfaces.push({
+        name: match[1],
+        alias,
+        leftGenerics: generics,
+        rightGenerics: extractGenericNames(generics),
+      });
     }
   });
 
@@ -111,7 +122,10 @@ ${allTypes
   )
   .join('\n')}
 ${allInterfaces
-  .map((i) => `  interface ${i.name} extends ${i.alias}.${i.name} {}`)
+  .map(
+    (i) =>
+      `  interface ${i.name}${i.leftGenerics} extends ${i.alias}.${i.name}${i.rightGenerics} {}`
+  )
   .join('\n')}
 }
 `;
@@ -125,6 +139,31 @@ ${allInterfaces
 // -----------------------
 // Helpers
 // -----------------------
+
+function extractGenericNames(generics: string): string {
+  if (!generics.startsWith('<') || !generics.endsWith('>')) {
+    return generics;
+  }
+  const content = generics.substring(1, generics.length - 1);
+  let depth = 0;
+  let lastSplit = 0;
+  const parts: string[] = [];
+  for (let i = 0; i < content.length; i++) {
+    if (content[i] === '<') {
+      depth++;
+    } else if (content[i] === '>') {
+      depth--;
+    } else if (content[i] === ',' && depth === 0) {
+      parts.push(content.substring(lastSplit, i));
+      lastSplit = i + 1;
+    }
+  }
+  parts.push(content.substring(lastSplit));
+
+  return `<${parts
+    .map((part) => part.split('=')[0].split(' extends ')[0].trim())
+    .join(', ')}>`;
+}
 
 function findFiles(
   baseDir: string,
@@ -150,11 +189,12 @@ function findFiles(
 function generateAliasName(filePath: string, outputDir: string): string {
   const relativePath = path.relative(outputDir, filePath).replace(/\\/g, '/');
   const noExt = relativePath.replace(/\.ts$/, '');
-  const parts = noExt
-    .split('/')
-    .filter(
-      (p) => p && p !== '.' && p !== '..' && p !== 'src' && p !== 'types'
-    );
+  const parts = noExt.split('/').filter((p) => p && p !== '.' && p !== '..');
+
+  if (parts.length === 0) {
+    parts.push(path.basename(noExt));
+  }
+
   const pascalCase = parts
     .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
     .join('');
