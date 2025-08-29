@@ -79,32 +79,53 @@ describe('generateAliasName', () => {
   it('should generate an alias name from a file path', () => {
     const alias = generateAliasName(
       path.resolve('./test/test-files/types1.ts'),
-      path.resolve('./test')
+      path.resolve('./output')
     );
-    expect(alias).toBe('Test-filesTypes1Types');
+    expect(alias).toBe('TestTestFilesTypes1Types');
   });
 
   it('should generate an alias name from a nested file path', () => {
     const alias = generateAliasName(
       path.resolve('./test/test-files/more-types/types3.ts'),
-      path.resolve('./test')
+      path.resolve('./output')
     );
-    expect(alias).toBe('Test-filesMore-typesTypes3Types');
+    expect(alias).toBe('TestTestFilesMoreTypesTypes3Types');
   });
 
   it('should handle file in root of output dir', () => {
     const alias = generateAliasName(
       path.resolve('./test/types1.ts'),
-      path.resolve('./test')
+      path.resolve('./output')
     );
-    expect(alias).toBe('Types1Types');
+    expect(alias).toBe('TestTypes1Types');
   });
 
   it('should handle weird file names', () => {
     const alias = generateAliasName(
       path.resolve('./test/.ts'),
-      path.resolve('./test')
+      path.resolve('./output')
     );
-    expect(alias).toBe('Types');
+    expect(alias).toBe('TestTypes');
+  });
+  it('should handle parent directory files', () => {
+    const alias = generateAliasName(
+      path.resolve('../test/types.ts'),
+      path.resolve('./output')
+    );
+    expect(alias).toBe('TestTypes');
+  });
+  it('should handle index files', () => {
+    const alias = generateAliasName(
+      path.resolve('./test/index.ts'),
+      path.resolve('./output')
+    );
+    expect(alias).toBe('TestTypes');
+  });
+  it('should handle types files', () => {
+    const alias = generateAliasName(
+      path.resolve('./index.ts'),
+      path.resolve('./output')
+    );
+    expect(alias).toBe('IndexTypes');
   });
 });

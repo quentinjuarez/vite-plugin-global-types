@@ -191,14 +191,24 @@ export function findFiles(
 export function generateAliasName(filePath: string, outputDir: string): string {
   const relativePath = path.relative(outputDir, filePath).replace(/\\/g, '/');
   const noExt = relativePath.replace(/\.ts$/, '');
-  const parts = noExt.split('/').filter((p) => p && p !== '.' && p !== '..');
+  const parts = noExt
+    .split('/')
+    .filter(
+      (p) => p && p !== '.' && p !== '..' && p !== 'index' && p !== 'types'
+    );
 
   if (parts.length === 0) {
     parts.push(path.basename(noExt));
   }
 
   const pascalCase = parts
-    .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+    .map((p) =>
+      p
+        .split(/[^A-Za-z0-9]/) // Split by non-alphanumeric (e.g. '-')
+        .filter(Boolean)
+        .map((seg) => seg.charAt(0).toUpperCase() + seg.slice(1))
+        .join('')
+    )
     .join('');
   return pascalCase + 'Types';
 }
