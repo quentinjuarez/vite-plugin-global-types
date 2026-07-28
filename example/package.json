@@ -1,5 +1,5 @@
 {
-  "name": "generate-global-types-example",
+  "name": "vite-plugin-global-types-example",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -7,13 +7,10 @@
     "build": "vite build"
   },
   "dependencies": {
-    "vite": "^6.3.5"
+    "vite": "^8.1.5"
   },
-  "packageManager": "yarn@3.8.6",
   "devDependencies": {
-    "@types/node": "^24.3.0"
+    "@types/node": "^22.10.0"
   },
-  "resolutions": {
-    "vite-plugin-global-types": "portal:/Users/quentinjuarez/Documents/Perso/generate-global-types"
-  }
+  "packageManager": "yarn@3.8.6"
 }

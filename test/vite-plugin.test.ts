@@ -1,7 +1,8 @@
-import { describe, it, expect, vi } from 'vitest';
-import vitePluginGlobalTypes from '../src/index';
-import * as generateTypes from '../src/generate-types';
 import type { Plugin, ViteDevServer } from 'vite';
+import { describe, it, expect, vi } from 'vitest';
+
+import * as generateTypes from '../src/generate-types';
+import vitePluginGlobalTypes from '../src/index';
 
 vi.mock('../src/generate-types', async () => {
   const actual = await vi.importActual('../src/generate-types');

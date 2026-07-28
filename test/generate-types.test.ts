@@ -1,7 +1,9 @@
-import { describe, it, expect, afterEach } from 'vitest';
-import { generateGlobalTypes } from '../src/generate-types';
 import fs from 'fs';
 import path from 'path';
+
+import { describe, it, expect, afterEach } from 'vitest';
+
+import { generateGlobalTypes } from '../src/generate-types';
 
 const testOutputDir = path.resolve('./test/output');
 
@@ -27,7 +29,7 @@ describe('generateGlobalTypes', () => {
     const content = fs.readFileSync(outputFile, 'utf-8');
     expect(content).toContain('type MyType = TestFilesTypes1Types.MyType');
     expect(content).toContain(
-      'interface MyInterface extends TestFilesTypes1Types.MyInterface {}'
+      'interface MyInterface extends TestFilesTypes1Types.MyInterface {}',
     );
   });
 
@@ -44,13 +46,13 @@ describe('generateGlobalTypes', () => {
     const content = fs.readFileSync(outputFile, 'utf-8');
     expect(content).toContain('type MyType = TestFilesTypes1Types.MyType');
     expect(content).toContain(
-      'interface MyInterface extends TestFilesTypes1Types.MyInterface {}'
+      'interface MyInterface extends TestFilesTypes1Types.MyInterface {}',
     );
     expect(content).toContain(
-      'type GenericType<T> = TestFilesTypes2Types.GenericType<T>'
+      'type GenericType<T> = TestFilesTypes2Types.GenericType<T>',
     );
     expect(content).toContain(
-      'interface GenericInterface<T, U> extends TestFilesTypes2Types.GenericInterface<T, U> {}'
+      'interface GenericInterface<T, U> extends TestFilesTypes2Types.GenericInterface<T, U> {}',
     );
   });
 
@@ -64,10 +66,10 @@ describe('generateGlobalTypes', () => {
     const content = fs.readFileSync(outputFile, 'utf-8');
     expect(content).toContain('type MyType = TestFilesTypes1Types.MyType');
     expect(content).toContain(
-      'type GenericType<T> = TestFilesTypes2Types.GenericType<T>'
+      'type GenericType<T> = TestFilesTypes2Types.GenericType<T>',
     );
     expect(content).toContain(
-      'type AnotherType = TestFilesMoreTypesTypes3Types.AnotherType'
+      'type AnotherType = TestFilesMoreTypesTypes3Types.AnotherType',
     );
   });
 
@@ -85,8 +87,26 @@ describe('generateGlobalTypes', () => {
 
     const content = fs.readFileSync(outputFile, 'utf-8');
     expect(content).toContain(
-      "import * as TestFilesTypes1Types from '@/types1'"
+      "import * as TestFilesTypes1Types from '@/types1'",
     );
+  });
+
+  it('should keep the import relative when the input sits next to the output', () => {
+    // Regression: path.relative returns "types1" here, and a bare specifier
+    // resolves as a package name rather than as a sibling file.
+    const inputDir = path.resolve('./test/test-files');
+    const outputFile = path.join(inputDir, 'global.d.ts');
+    try {
+      generateGlobalTypes({
+        inputs: [path.join(inputDir, 'types1.ts')],
+        outputs: [outputFile],
+      });
+
+      const content = fs.readFileSync(outputFile, 'utf-8');
+      expect(content).toContain("import * as Types1Types from './types1'");
+    } finally {
+      fs.rmSync(outputFile, { force: true });
+    }
   });
 
   it('should throw error if no inputs found', () => {
@@ -95,7 +115,7 @@ describe('generateGlobalTypes', () => {
       generateGlobalTypes({
         inputs: ['non-existent-file.ts'],
         outputs: [outputFile],
-      })
+      }),
     ).toThrow('No input files found');
   });
 
@@ -108,7 +128,7 @@ describe('generateGlobalTypes', () => {
 
     const content = fs.readFileSync(outputFile, 'utf-8');
     expect(content).toContain(
-      'interface InterfaceOnly extends TestFilesInterfaceOnlyTypes.InterfaceOnly {}'
+      'interface InterfaceOnly extends TestFilesInterfaceOnlyTypes.InterfaceOnly {}',
     );
     const typeDeclarations = content.match(/type\s+\w+\s*=/g);
     expect(typeDeclarations).toBeNull();

@@ -1,6 +1,8 @@
-import { defineConfig } from 'vite';
-import vitePluginGlobalTypes from '../src/index';
 import path from 'path';
+
+import { defineConfig } from 'vite';
+
+import vitePluginGlobalTypes from '../src/index';
 
 export default defineConfig({
   plugins: [

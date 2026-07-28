@@ -62,7 +62,7 @@ export function generateGlobalTypes(options: GenerateOptions) {
           ...findFiles(input.absPath, {
             filePattern: input.filePattern || /.*/,
             excludeDirs: input.excludeDirs || [],
-          })
+          }),
         );
       } else {
         inputFiles.push(input.absPath);
@@ -75,12 +75,18 @@ export function generateGlobalTypes(options: GenerateOptions) {
   inputFiles.forEach((file) => {
     const content = fs.readFileSync(file, 'utf-8');
     const inputOption = resolvedInputs.find((inp) =>
-      file.startsWith(inp.absPath)
+      file.startsWith(inp.absPath),
     );
     const alias = generateAliasName(file, outputDir);
+    const relativeImport = path
+      .relative(outputDir, file)
+      .replace(/\\/g, '/')
+      .replace(/\.ts$/, '');
+    // An input sitting next to the output yields a bare specifier like
+    // "index", which resolves as a package name instead of a sibling file.
     const importPath =
       inputOption?.importAs ||
-      path.relative(outputDir, file).replace(/\\/g, '/').replace(/\.ts$/, '');
+      (relativeImport.startsWith('.') ? relativeImport : `./${relativeImport}`);
     imports.push(`import * as ${alias} from '${importPath}'`);
 
     const typeRegex = /^\s*export\s+type\s+([A-Za-z0-9_]+)(<.*>)?/gm;
@@ -120,13 +126,13 @@ declare global {
 ${allTypes
   .map(
     (t) =>
-      `  type ${t.name}${t.leftGenerics} = ${t.alias}.${t.name}${t.rightGenerics}`
+      `  type ${t.name}${t.leftGenerics} = ${t.alias}.${t.name}${t.rightGenerics}`,
   )
   .join('\n')}
 ${allInterfaces
   .map(
     (i) =>
-      `  interface ${i.name}${i.leftGenerics} extends ${i.alias}.${i.name}${i.rightGenerics} {}`
+      `  interface ${i.name}${i.leftGenerics} extends ${i.alias}.${i.name}${i.rightGenerics} {}`,
   )
   .join('\n')}
 }
@@ -172,7 +178,7 @@ export function findFiles(
   {
     filePattern = /.*/,
     excludeDirs = [],
-  }: { filePattern?: RegExp; excludeDirs?: string[] } = {}
+  }: { filePattern?: RegExp; excludeDirs?: string[] } = {},
 ): string[] {
   let results: string[] = [];
   const files = fs.readdirSync(baseDir, { withFileTypes: true });
@@ -194,7 +200,7 @@ export function generateAliasName(filePath: string, outputDir: string): string {
   const parts = noExt
     .split('/')
     .filter(
-      (p) => p && p !== '.' && p !== '..' && p !== 'index' && p !== 'types'
+      (p) => p && p !== '.' && p !== '..' && p !== 'index' && p !== 'types',
     );
 
   if (parts.length === 0) {
@@ -207,7 +213,7 @@ export function generateAliasName(filePath: string, outputDir: string): string {
         .split(/[^A-Za-z0-9]/) // Split by non-alphanumeric (e.g. '-')
         .filter(Boolean)
         .map((seg) => seg.charAt(0).toUpperCase() + seg.slice(1))
-        .join('')
+        .join(''),
     )
     .join('');
   return pascalCase + 'Types';

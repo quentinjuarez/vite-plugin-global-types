@@ -1,8 +1,11 @@
 import type { Plugin } from 'vite';
-import { generateGlobalTypes, GenerateOptions } from './generate-types';
+
+// Explicit .js extension: this package ships as ESM ("type": "module"), and
+// Node's ESM resolver does not guess extensions for relative imports.
+import { generateGlobalTypes, GenerateOptions } from './generate-types.js';
 
 export default function vitePluginGlobalTypes(
-  options: GenerateOptions
+  options: GenerateOptions,
 ): Plugin {
   return {
     name: 'vite-plugin-global-types',
