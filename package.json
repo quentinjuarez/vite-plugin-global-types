@@ -36,7 +36,7 @@
     "format": "oxfmt . '!**/global.d.ts'",
     "format:check": "oxfmt --check . '!**/global.d.ts'",
     "verify": "yarn lint && yarn format:check && yarn typecheck && yarn test && yarn build",
-    "release": "yarn verify && yarn npm publish"
+    "release": "bash scripts/release.sh"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
