@@ -41,4 +41,27 @@ describe('vite-plugin-global-types', () => {
     callback();
     expect(generateTypes.generateGlobalTypes).toHaveBeenCalledWith(options);
   });
+
+  it('should log instead of throwing when regeneration fails on change', () => {
+    vi.mocked(generateTypes.generateGlobalTypes).mockImplementationOnce(() => {
+      throw new Error('No input files found');
+    });
+    const plugin = vitePluginGlobalTypes({
+      inputs: ['input.ts'],
+      outputs: ['output.d.ts'],
+    }) as Plugin;
+    const error = vi.fn();
+    const server = {
+      watcher: { on: vi.fn() },
+      config: { logger: { error } },
+    } as unknown as ViteDevServer;
+    (plugin.configureServer as Function)(server);
+
+    const [, callback] = (server.watcher.on as any).mock.calls[0];
+    expect(() => callback()).not.toThrow();
+    expect(error).toHaveBeenCalledTimes(1);
+    expect(error.mock.calls[0][1].error.message).toContain(
+      'No input files found',
+    );
+  });
 });

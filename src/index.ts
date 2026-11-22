@@ -12,7 +12,16 @@ export default function vitePluginGlobalTypes(
     apply: 'serve',
     configureServer(server) {
       server.watcher.on('change', () => {
-        generateGlobalTypes(options);
+        try {
+          generateGlobalTypes(options);
+        } catch (error) {
+          server.config.logger.error(
+            '[vite-plugin-global-types] regeneration failed',
+            {
+              error: error instanceof Error ? error : new Error(String(error)),
+            },
+          );
+        }
       });
     },
     buildStart() {

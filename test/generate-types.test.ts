@@ -3,7 +3,7 @@ import path from 'path';
 
 import { describe, it, expect, afterEach } from 'vitest';
 
-import { generateGlobalTypes } from '../src/generate-types';
+import { findFiles, generateGlobalTypes } from '../src/generate-types';
 
 const testOutputDir = path.resolve('./test/output');
 
@@ -144,5 +144,133 @@ describe('generateGlobalTypes', () => {
     const content = fs.readFileSync(outputFile, 'utf-8');
     const globalDeclarations = content.match(/declare global {([^}]*)}/);
     expect(globalDeclarations && globalDeclarations[1].trim()).toBe('');
+  });
+
+  describe('import path escaping', () => {
+    it('should escape quotes, backslashes and line breaks in importAs', () => {
+      const outputFile = path.join(testOutputDir, 'global.d.ts');
+      generateGlobalTypes({
+        inputs: [
+          {
+            path: path.resolve('./test/test-files/types1.ts'),
+            importAs: "a'b\\c\nd",
+          },
+        ],
+        outputs: [outputFile],
+      });
+
+      const content = fs.readFileSync(outputFile, 'utf-8');
+      expect(content).toContain("from 'a\\'b\\\\c\\nd'");
+      const importLines = content
+        .split('\n')
+        .filter((line) => line.startsWith('import '));
+      expect(importLines).toHaveLength(1);
+    });
+
+    it('should prefix the alias with an underscore when it starts with a digit', () => {
+      const inputDir = path.join(testOutputDir, '2fa');
+      fs.mkdirSync(inputDir, { recursive: true });
+      fs.writeFileSync(path.join(inputDir, 'user.ts'), 'export type U = 1\n');
+      const outputFile = path.join(testOutputDir, 'out', 'global.d.ts');
+      generateGlobalTypes({ inputs: [inputDir], outputs: [outputFile] });
+
+      const content = fs.readFileSync(outputFile, 'utf-8');
+      expect(content).toContain('import * as _2faUserTypes from');
+      expect(content).toContain('type U = _2faUserTypes.U');
+    });
+  });
+
+  describe('file discovery', () => {
+    function seedTree() {
+      const root = path.join(testOutputDir, 'tree');
+      const files = [
+        'a.ts',
+        'b.mts',
+        'c.cts',
+        'd.tsx',
+        'f.vue',
+        'notes.txt',
+        'logo.png',
+        'node_modules/dep/index.ts',
+        '.git/hooks/hook.ts',
+        'nested/e.ts',
+      ];
+      for (const file of files) {
+        const full = path.join(root, file);
+        fs.mkdirSync(path.dirname(full), { recursive: true });
+        fs.writeFileSync(full, 'export type T = 1\n');
+      }
+      return root;
+    }
+
+    it('should only scan TypeScript files and skip node_modules and .git by default', () => {
+      const root = seedTree();
+      const found = findFiles(root)
+        .map((f) => path.relative(root, f))
+        .sort();
+      expect(found).toEqual([
+        'a.ts',
+        'b.mts',
+        'c.cts',
+        'd.tsx',
+        'f.vue',
+        'nested/e.ts',
+      ]);
+    });
+
+    it('should still honour an explicit filePattern and excludeDirs', () => {
+      const root = seedTree();
+      const found = findFiles(root, {
+        filePattern: /\.txt$/,
+        excludeDirs: ['nested'],
+      }).map((f) => path.relative(root, f));
+      expect(found).toEqual(['notes.txt']);
+    });
+
+    it('should let excludeDirs replace the default exclusions', () => {
+      const root = seedTree();
+      const found = findFiles(root, { excludeDirs: ['nested'] })
+        .map((f) => path.relative(root, f))
+        .sort();
+      expect(found).toEqual([
+        '.git/hooks/hook.ts',
+        'a.ts',
+        'b.mts',
+        'c.cts',
+        'd.tsx',
+        'f.vue',
+        'node_modules/dep/index.ts',
+      ]);
+    });
+
+    it('should not be fooled by the lastIndex state of a global RegExp', () => {
+      const root = seedTree();
+      const found = findFiles(root, { filePattern: /\.ts$/g }).map((f) =>
+        path.relative(root, f),
+      );
+      expect(found.sort()).toEqual(['a.ts', 'nested/e.ts']);
+      const stable = findFiles(root, { filePattern: /^[a-e]\.ts$/g });
+      expect(stable).toHaveLength(2);
+    });
+  });
+
+  describe('input matching', () => {
+    it('should not apply importAs to a sibling directory sharing a name prefix', () => {
+      const types = path.join(testOutputDir, 'src', 'types');
+      const internal = path.join(testOutputDir, 'src', 'types-internal');
+      fs.mkdirSync(types, { recursive: true });
+      fs.mkdirSync(internal, { recursive: true });
+      fs.writeFileSync(path.join(types, 'a.ts'), 'export type A = 1\n');
+      fs.writeFileSync(path.join(internal, 'b.ts'), 'export type B = 1\n');
+      const outputFile = path.join(testOutputDir, 'out', 'global.d.ts');
+      generateGlobalTypes({
+        inputs: [{ path: types, importAs: '@/types' }, internal],
+        outputs: [outputFile],
+      });
+
+      const content = fs.readFileSync(outputFile, 'utf-8');
+      expect(content.match(/from '@\/types'/g)).toHaveLength(1);
+      expect(content).toContain("from '../src/types-internal/b'");
+    });
   });
 });
