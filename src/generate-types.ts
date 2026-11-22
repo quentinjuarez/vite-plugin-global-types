@@ -60,8 +60,8 @@ export function generateGlobalTypes(options: GenerateOptions) {
       if (fs.statSync(input.absPath).isDirectory()) {
         inputFiles.push(
           ...findFiles(input.absPath, {
-            filePattern: input.filePattern || /.*/,
-            excludeDirs: input.excludeDirs || [],
+            filePattern: input.filePattern,
+            excludeDirs: input.excludeDirs,
           }),
         );
       } else {
@@ -74,8 +74,8 @@ export function generateGlobalTypes(options: GenerateOptions) {
 
   inputFiles.forEach((file) => {
     const content = fs.readFileSync(file, 'utf-8');
-    const inputOption = resolvedInputs.find((inp) =>
-      file.startsWith(inp.absPath),
+    const inputOption = resolvedInputs.find(
+      (inp) => file === inp.absPath || file.startsWith(inp.absPath + path.sep),
     );
     const alias = generateAliasName(file, outputDir);
     const relativeImport = path
@@ -87,7 +87,9 @@ export function generateGlobalTypes(options: GenerateOptions) {
     const importPath =
       inputOption?.importAs ||
       (relativeImport.startsWith('.') ? relativeImport : `./${relativeImport}`);
-    imports.push(`import * as ${alias} from '${importPath}'`);
+    imports.push(
+      `import * as ${alias} from '${escapeSingleQuoted(importPath)}'`,
+    );
 
     const typeRegex = /^\s*export\s+type\s+([A-Za-z0-9_]+)(<.*>)?/gm;
     const interfaceRegex = /^\s*export\s+interface\s+([A-Za-z0-9_]+)(<.*>)?/gm;
@@ -173,20 +175,45 @@ export function extractGenericNames(generics: string): string {
     .join(', ')}>`;
 }
 
+const DEFAULT_FILE_PATTERN = /\.(c|m)?tsx?$|\.vue$/;
+const DEFAULT_EXCLUDED_DIRS = ['node_modules', '.git'];
+
+function escapeSingleQuoted(value: string): string {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+}
+
 export function findFiles(
   baseDir: string,
   {
-    filePattern = /.*/,
-    excludeDirs = [],
+    filePattern = DEFAULT_FILE_PATTERN,
+    excludeDirs = DEFAULT_EXCLUDED_DIRS,
   }: { filePattern?: RegExp; excludeDirs?: string[] } = {},
+): string[] {
+  const pattern = filePattern.global
+    ? new RegExp(filePattern.source, filePattern.flags.replace('g', ''))
+    : filePattern;
+  const excluded = new Set(excludeDirs);
+  return walk(baseDir, pattern, excluded);
+}
+
+function walk(
+  baseDir: string,
+  filePattern: RegExp,
+  excludeDirs: Set<string>,
 ): string[] {
   let results: string[] = [];
   const files = fs.readdirSync(baseDir, { withFileTypes: true });
   for (const file of files) {
     const fullPath = path.join(baseDir, file.name);
     if (file.isDirectory()) {
-      if (excludeDirs.includes(file.name)) continue;
-      results.push(...findFiles(fullPath, { filePattern, excludeDirs }));
+      if (excludeDirs.has(file.name)) continue;
+      results.push(...walk(fullPath, filePattern, excludeDirs));
     } else if (file.isFile() && filePattern.test(file.name)) {
       results.push(fullPath);
     }
@@ -216,5 +243,6 @@ export function generateAliasName(filePath: string, outputDir: string): string {
         .join(''),
     )
     .join('');
-  return pascalCase + 'Types';
+  const alias = pascalCase + 'Types';
+  return /^[0-9]/.test(alias) ? `_${alias}` : alias;
 }

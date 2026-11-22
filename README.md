@@ -91,13 +91,13 @@ interface InputOption {
 }
 ```
 
-| Option        | What it does                                                                                |
-| ------------- | ------------------------------------------------------------------------------------------- |
-| `inputs`      | Files or directories to scan. A plain string is shorthand for `{ path }`                    |
-| `outputs`     | One or more paths to write the same generated declaration to                                |
-| `filePattern` | Applied when the input is a directory, to pick which files to scan. Defaults to all         |
-| `excludeDirs` | Directory names skipped while walking a directory input                                     |
-| `importAs`    | Override the generated import specifier, for example `'@/types'` instead of a relative path |
+| Option        | What it does                                                                                                                      |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `inputs`      | Files or directories to scan. A plain string is shorthand for `{ path }`                                                          |
+| `outputs`     | One or more paths to write the same generated declaration to                                                                      |
+| `filePattern` | Applied when the input is a directory, to pick which files to scan. Defaults to TypeScript and `.vue` files                       |
+| `excludeDirs` | Directory names skipped while walking a directory input. Defaults to `['node_modules', '.git']`, and a value you pass replaces it |
+| `importAs`    | Override the generated import specifier, for example `'@/types'` instead of a relative path                                       |
 
 Scanning a directory, keeping only `.ts` files and skipping generated output:
 
